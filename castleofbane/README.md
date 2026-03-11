@@ -20,18 +20,16 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - Eye of the Beholder (1991) - D&D dungeon feel
 
 ---
-![Dungeon Screenshot](screenshots/dungeon2.gif)
 
-## Current State (v0.4.0)
+## Current State (v0.3.0)
 
 **Working:**
 - Full OpenGL 3D rendering with hardware depth buffer
 - BSP tree for efficient front-to-back wall traversal
-- **Data-driven level loading** from `.level` files
-- **Wizard's staff** with idle sway and walking bob
-- Entity parsing (keys, enemies, doors, stairs, treasure)
+- Proper wall occlusion (no see-through artifacts)
+- Grid-based dungeon with automatic wall generation
 - Player movement with collision buffer
-- Multiple color schemes (Amber, Green, Blue, White)
+- Multiple color schemes (Amber, Green, Blue, etc.)
 - Minimap
 - 60fps on discrete GPU
 
@@ -39,19 +37,23 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 ```
 ┌─────────────────────────────────────────┐
 │ BSP GL3D - Amber                        │
-│ Pos: (16, 3) Angle: 216°      ┌───┐     │
-│ Walls rendered: 230           │ ▪ │     │
+│ Pos: (10, 10) Angle: 45°      ┌───┐     │
+│ Walls rendered: 96            │ ▪ │     │
 │                               └───┘     │
 │    ╱│         ┌──┐                      │
 │   ╱ │      ┌──┤  ├──┐                   │
 │  │  │      │  │  │  │                   │
 │  │  │      │  └──┘  │                   │
 │──┴──┴──────┴────────┴───────────────────│
-│            ◇                            │
-│           /▲\     ← Wizard's Staff      │
-│            │                            │
+│                                         │
 └─────────────────────────────────────────┘
 ```
+
+**Key Improvements in v0.3.0:**
+- Switched from software projection + painter's algorithm to full OpenGL 3D
+- BSP tree handles traversal order; GPU depth buffer handles occlusion
+- No more "see through walls" artifacts at angles or close range
+- Cleaner architecture - let OpenGL do what it's designed for
 
 ---
 
@@ -66,15 +68,11 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - [x] Minimap
 - [x] Color schemes
 
-### Phase 2: Interactivity ✔ (Partial)
-- [x] **Weapon view** - Staff/wand at bottom of screen
-- [x] **Weapon bob** - Subtle sway while walking/idle
-- [x] **Data-driven levels** - Load from `.level` files
-- [x] **Entity parsing** - Keys, enemies, doors, stairs
-- [ ] **Entity rendering** - Draw keys/enemies in world
-- [ ] **Doors** - Open with Space, locked doors need keys
+### Phase 2: Interactivity (Next)
+- [ ] **Weapon view** - Staff/wand at bottom of screen
+- [ ] **Weapon bob** - Subtle movement while walking
+- [ ] **Doors** - Locked and unlocked, open with Space
 - [ ] **Keys** - Collectible items to unlock doors
-- [ ] **Stairs** - Navigate between levels
 
 ### Phase 3: Combat
 - [ ] **Enemies** - Simple wandering monsters
@@ -86,64 +84,87 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 ### Phase 4: Polish
 - [ ] **Sound effects** - Footsteps, doors, combat
 - [ ] **Procedural dungeons** - Random level generation
+- [ ] **Multiple levels** - Stairs up/down
 - [ ] **Title screen** - Start menu
 - [ ] **Score/treasure** - Collectibles
 
 ---
 
-## Level Format
+## Technical Architecture
 
-Levels are ASCII text files with a simple format:
-
-```
-name: The Dungeon Entrance
-next: level2.level
-prev: level0.level
----
-####################
-#@.......#....K....#
-#........D.........#
-#........#....E....#
-####################
-```
-
-**Legend:**
-| Char | Description |
-|------|-------------|
-| `#` | Solid wall |
-| `.` | Floor |
-| `@` | Player start |
-| `D` | Door |
-| `L` | Locked door |
-| `K` | Key (gold) |
-| `k` | Key (silver) |
-| `E` | Skeleton enemy |
-| `G` | Ghost enemy |
-| `T` | Treasure |
-| `<` | Stairs up |
-| `>` | Stairs down |
-| `S` | Secret door |
-| `~` | Pit |
-
----
-
-## Project Structure
+### Rendering Pipeline (v0.3.0)
 
 ```
-castle_of_bane/
-├── bsp_dungeon_gl3d.py          # Main game
-├── levels/
-│   ├── level1.level             # The Dungeon Entrance
-│   ├── level2.level             # The Skeleton Halls
-│   └── level3.level             # The Ghost Chamber
-├── wireframe_engine/
-│   ├── __init__.py              # Package exports
-│   ├── bsp.py                   # BSP tree
-│   ├── dungeon.py               # Grid/wall system
-│   └── level.py                 # Level loader
-├── README.md
-├── README_Engine.md
-└── DEV_ROADMAP.md
+World Geometry (3D coordinates)
+     ↓
+BSP Tree Traversal (front-to-back from camera position)
+     ↓
+For each wall:
+  Back-face Culling (dot product with view direction)
+     ↓
+  Pass 3D vertices directly to OpenGL
+     ↓
+OpenGL handles:
+  - Perspective projection (gluPerspective)
+  - Near/far plane clipping
+  - Depth testing (z-buffer)
+  - Rasterization
+     ↓
+Draw: Polygon fill + wireframe outline
+```
+
+**Key insight:** Earlier versions tried to do software projection to 2D, then retrofit depth values for the z-buffer. This hybrid approach was fundamentally broken. The new approach lets OpenGL handle the entire 3D pipeline.
+
+### File Structure
+
+```
+wireframe_engine/           # Reusable engine
+├── core.py                 # Camera, projection, clipping (legacy)
+├── objects.py              # GameObject base class  
+├── renderer.py             # WireframeRenderer base (legacy)
+├── dungeon.py              # DungeonMap, Wall, Cell types
+└── bsp.py                  # BSP tree implementation
+
+game files/
+├── bsp_dungeon_gl3d.py     # Main game - full OpenGL 3D renderer
+├── bsp_dungeon_demo.py     # Earlier hybrid approach (deprecated)
+├── weapons.py              # Staff/wand rendering (TODO)
+├── enemies.py              # Monster types and AI (TODO)
+└── items.py                # Keys, treasures (TODO)
+```
+
+### BSP Tree
+
+Binary Space Partitioning provides correct traversal order:
+
+```python
+# Build once at level load
+bsp_tree = build_bsp_from_dungeon(dungeon)
+
+# Each frame - traverse front-to-back for efficiency
+for wall in bsp_tree.traverse_front_to_back(camera.x, camera.z):
+    render_wall(wall)
+```
+
+With hardware depth testing, traversal order doesn't affect correctness - the z-buffer handles occlusion. But front-to-back order enables early-z rejection, reducing overdraw.
+
+### OpenGL Setup
+
+```python
+# Perspective projection
+gluPerspective(fov=75.0, aspect=width/height, near=1.0, far=1000.0)
+
+# Camera transform via modelview matrix
+glRotatef(cam_angle, 0, 1, 0)      # Yaw rotation
+glTranslatef(-cam_x, -cam_y, -cam_z)  # Position
+
+# Depth testing
+glEnable(GL_DEPTH_TEST)
+glDepthFunc(GL_LESS)
+
+# Polygon offset prevents z-fighting between fills and outlines
+glEnable(GL_POLYGON_OFFSET_FILL)
+glPolygonOffset(1.0, 1.0)
 ```
 
 ---
@@ -180,13 +201,10 @@ castle_of_bane/
 # Install dependencies
 pip install PyQt6 PyOpenGL
 
-# Run (auto-loads levels/level1.level)
+# Run the game
 python bsp_dungeon_gl3d.py
 
-# Run specific level
-python bsp_dungeon_gl3d.py levels/level2.level
-
-# On Linux with Nvidia GPU (recommended)
+# On Linux with Nvidia GPU (recommended for smoothness)
 __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia python bsp_dungeon_gl3d.py
 ```
 
@@ -196,8 +214,7 @@ __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia python bsp_dungeon_
 
 - **v0.1.0** - Basic painter's algorithm, flickering occlusion issues
 - **v0.2.0** - Portal rendering, view-dependent culling, color schemes
-- **v0.3.0** - Full OpenGL 3D with BSP tree, hardware depth buffer
-- **v0.4.0** - Data-driven levels, wizard's staff with weapon bob, entity parsing
+- **v0.3.0** - Full OpenGL 3D with BSP tree, hardware depth buffer, proper occlusion
 
 ---
 

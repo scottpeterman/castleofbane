@@ -11,7 +11,7 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - Retro vector graphics (amber/green phosphor CRT look)
 - Staff/wand always visible at bottom of screen (like Wolf3D's gun)
 - Grid-based dungeon with doors, keys, enemies
-- Simple but satisfying combat
+- Simple but satisfying exploration and puzzle-solving
 
 **Inspirations:**
 - Wolfenstein 3D (1992) - First-person shooter on a grid, weapon always visible
@@ -20,38 +20,30 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - Eye of the Beholder (1991) - D&D dungeon feel
 
 ---
-![Dungeon Screenshot](screenshots/dungeon2.gif)
+![Dungeon Screenshot](screenshots/dungeon4.gif)
 
-## Current State (v0.4.0)
+## Current State (v0.5.0)
 
 **Working:**
 - Full OpenGL 3D rendering with hardware depth buffer
 - BSP tree for efficient front-to-back wall traversal
 - **Data-driven level loading** from `.level` files
 - **Wizard's staff** with idle sway and walking bob
-- Entity parsing (keys, enemies, doors, stairs, treasure)
+- **Entity rendering** - Wireframe keys, skeletons, ghosts, treasure, stairs, doors in world
+- **Billboarded entities** - All entities face the camera (classic Doom style)
+- **Doors** - Space to open, with visual door frame rendering
+- **Locked doors** - Red X pattern, require gold key to open
+- **Keys** - Walk over to collect, persist across levels
+- **Treasure** - Collectible gold chests with running total
+- **Stairs** - Walk onto to transition between levels
+- **Level transitions** - Three-level campaign with escape win state
+- **Inventory HUD** - Keys, treasure count displayed
+- **Flash messages** - Centered text with fade-out for pickups, doors, level names
+- **Minimap** - Color-coded entity markers (gold keys, red locked doors, green stairs)
 - Player movement with collision buffer
+- Doors block movement until opened
 - Multiple color schemes (Amber, Green, Blue, White)
-- Minimap
 - 60fps on discrete GPU
-
-**Screenshot:**
-```
-┌─────────────────────────────────────────┐
-│ BSP GL3D - Amber                        │
-│ Pos: (16, 3) Angle: 216°      ┌───┐     │
-│ Walls rendered: 230           │ ▪ │     │
-│                               └───┘     │
-│    ╱│         ┌──┐                      │
-│   ╱ │      ┌──┤  ├──┐                   │
-│  │  │      │  │  │  │                   │
-│  │  │      │  └──┘  │                   │
-│──┴──┴──────┴────────┴───────────────────│
-│            ◇                            │
-│           /▲\     ← Wizard's Staff      │
-│            │                            │
-└─────────────────────────────────────────┘
-```
 
 ---
 
@@ -66,15 +58,19 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - [x] Minimap
 - [x] Color schemes
 
-### Phase 2: Interactivity ✔ (Partial)
+### Phase 2: Interactivity ✔
 - [x] **Weapon view** - Staff/wand at bottom of screen
 - [x] **Weapon bob** - Subtle sway while walking/idle
 - [x] **Data-driven levels** - Load from `.level` files
 - [x] **Entity parsing** - Keys, enemies, doors, stairs
-- [ ] **Entity rendering** - Draw keys/enemies in world
-- [ ] **Doors** - Open with Space, locked doors need keys
-- [ ] **Keys** - Collectible items to unlock doors
-- [ ] **Stairs** - Navigate between levels
+- [x] **Entity rendering** - Wireframe models billboarded toward camera
+- [x] **Doors** - Space to open, visual door frames, blocks movement when closed
+- [x] **Locked doors** - Require gold key, red X visual, consume key on unlock
+- [x] **Keys** - Walk-over pickup, gold/silver types, persist across levels
+- [x] **Treasure** - Collectible chests with running score
+- [x] **Stairs** - Level transitions (down = next level, up = escape/prev)
+- [x] **Level flow** - Three-level campaign with win state
+- [x] **Inventory HUD** - Keys, treasure, flash messages
 
 ### Phase 3: Combat
 - [ ] **Enemies** - Simple wandering monsters
@@ -87,7 +83,7 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - [ ] **Sound effects** - Footsteps, doors, combat
 - [ ] **Procedural dungeons** - Random level generation
 - [ ] **Title screen** - Start menu
-- [ ] **Score/treasure** - Collectibles
+- [ ] **Score/treasure** - End-of-game summary
 
 ---
 
@@ -127,11 +123,30 @@ prev: level0.level
 
 ---
 
+## The Campaign
+
+### Level 1: The Dungeon Entrance
+- 1 gold key, 2 doors, 1 treasure chest
+- Stairs down to Level 2
+- Tutorial-paced: open doors, find the key, collect treasure, descend
+
+### Level 2: The Skeleton Halls
+- 2 gold keys, 1 locked door, 2 regular doors
+- 2 skeletons, 1 treasure chest
+- Keys accumulate across levels — plan ahead
+
+### Level 3: The Ghost Chamber
+- 1 gold key, 1 locked door, 3 regular doors
+- 3 ghosts guarding the treasure vault (7 chests)
+- Stairs up = ESCAPE — you win!
+
+---
+
 ## Project Structure
 
 ```
 castle_of_bane/
-├── bsp_dungeon_gl3d.py          # Main game
+├── bsp_dungeon_gl3d.py          # Main game (~1050 lines)
 ├── levels/
 │   ├── level1.level             # The Dungeon Entrance
 │   ├── level2.level             # The Skeleton Halls
@@ -143,7 +158,7 @@ castle_of_bane/
 │   └── level.py                 # Level loader
 ├── README.md
 ├── README_Engine.md
-└── DEV_ROADMAP.md
+└── README_Roadmap.md
 ```
 
 ---
@@ -156,8 +171,7 @@ castle_of_bane/
 | S / ↓ | Move backward |
 | A / ← | Turn left |
 | D / → | Turn right |
-| Space | Open door (TODO) |
-| Ctrl / Click | Cast spell (TODO) |
+| Space | Open door / Unlock door (uses key) |
 | C | Cycle color scheme |
 | Q / Esc | Quit |
 
@@ -198,6 +212,7 @@ __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia python bsp_dungeon_
 - **v0.2.0** - Portal rendering, view-dependent culling, color schemes
 - **v0.3.0** - Full OpenGL 3D with BSP tree, hardware depth buffer
 - **v0.4.0** - Data-driven levels, wizard's staff with weapon bob, entity parsing
+- **v0.5.0** - Entity rendering, doors/keys/locked doors, treasure, level transitions, inventory HUD, three-level campaign with escape win state
 
 ---
 

@@ -859,6 +859,25 @@ class GL3DDungeonRenderer(QGraphicsView):
     def keyReleaseEvent(self, event):
         self.keys_pressed.discard(event.key())
 
+    # --- Monster Color --------------------------------------------------------
+
+    # Contrast colors for enemies so they stand out from walls
+    MONSTER_COLOR_BY_SCHEME = {
+        'amber': (0.0, 0.75, 1.0),     # Blue when walls are amber
+        'green': (1.0, 0.69, 0.0),     # Amber when walls are green
+        'blue':  (1.0, 0.69, 0.0),     # Amber when walls are blue
+        'white': (1.0, 0.69, 0.0),     # Amber when walls are white
+    }
+
+    def _get_monster_color(self):
+        """Return (r, g, b) tuple for enemy rendering based on current scheme."""
+        return self.MONSTER_COLOR_BY_SCHEME.get(self.color_name, (1.0, 0.69, 0.0))
+
+    def _get_monster_qcolor(self):
+        """Return QColor for enemy minimap markers."""
+        r, g, b = self._get_monster_color()
+        return QColor(int(r * 255), int(g * 255), int(b * 255))
+
     # --- Rendering ------------------------------------------------------------
 
     def drawBackground(self, painter: QPainter, rect):
@@ -980,6 +999,8 @@ class GL3DDungeonRenderer(QGraphicsView):
             ec = ENTITY_COLORS.get(entity.type)
             if ec:
                 er, eg, eb = ec
+            elif entity.type in ('skeleton', 'ghost'):
+                er, eg, eb = self._get_monster_color()
             else:
                 er, eg, eb = r, g, b
 
@@ -1167,7 +1188,8 @@ class GL3DDungeonRenderer(QGraphicsView):
             glTranslatef(effect.wx, -40.0, effect.wz)
             glRotatef(self.cam_angle, 0, 1, 0)
 
-            glColor3f(alpha, alpha, alpha)
+            mr, mg, mb = self._get_monster_color()
+            glColor3f(mr * alpha, mg * alpha, mb * alpha)
             glLineWidth(1.5)
             scale = model['scale']
             glBegin(GL_LINES)
@@ -1590,6 +1612,8 @@ class GL3DDungeonRenderer(QGraphicsView):
             if ec:
                 er, eg, eb = ec
                 painter.setPen(QPen(QColor(int(er * 255), int(eg * 255), int(eb * 255)), pen_w))
+            elif entity.type in ('skeleton', 'ghost'):
+                painter.setPen(QPen(self._get_monster_qcolor(), pen_w))
             else:
                 painter.setPen(QPen(self.color, pen_w))
 

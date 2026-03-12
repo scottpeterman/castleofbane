@@ -20,7 +20,7 @@ A first-person wireframe dungeon crawler in the style of Wolfenstein 3D, rendere
 - Eye of the Beholder (1991) - D&D dungeon feel
 
 ---
-![Dungeon Screenshot](screenshots/dungeon4.gif)
+![Dungeon Screenshot](screenshots/dungeon5.gif)
 
 ## Current State (v0.5.0)
 
